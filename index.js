@@ -1,3 +1,5 @@
+#!/usr/bin/env node
+
 const commandLineArgs = require('command-line-args');
 const polka = require("polka");
 const fetch = require("node-fetch");

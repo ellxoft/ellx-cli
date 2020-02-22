@@ -18,6 +18,10 @@ class Elliptic {
     this.key = key;
   }
 
+  privateKey() {
+    return b64urlEncode(this.key.getPrivate().toBuffer());
+  }
+
   publicKey() {
     let { x, y } = this.key.getPublic();
     return b64urlEncode(Buffer.concat([x, y].map(bn2Buffer)));
