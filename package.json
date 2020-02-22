@@ -1,6 +1,6 @@
 {
   "name": "ellx",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "ELLX resource server",
   "main": "index.js",
   "scripts": {

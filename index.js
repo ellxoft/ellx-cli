@@ -24,7 +24,6 @@ if (!config.user) {
 
 
 fetch(config.cert).then(r => r.text()).then(cert => {
-  console.log(cert);
   const publicKey = ec.keyFromPublic(cert);
 
   function checkUser(req, res, next) {
