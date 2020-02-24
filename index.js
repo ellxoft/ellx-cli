@@ -4,6 +4,7 @@ const commandLineArgs = require('command-line-args');
 const cors = require("cors");
 const polka = require("polka");
 const fetch = require("node-fetch");
+const { json } = require("body-parser");
 const ec = require('./util/ec');
 
 const serveFiles = require('./util/serve_files');
@@ -20,8 +21,10 @@ const config = commandLineArgs(optionDefinitions);
 
 config.port = config.port || 3002;
 config.trust = config.trust || 'http://localhost:8080/certificate';
-config.identity = config.identity || 'localhost:' + config.port;
+config.identity = config.identity || 'localhost-' + config.port;
 config.root = config.root || process.cwd();
+
+// TODO: RegEx check and warn for user and identity
 
 if (!config.user) {
   console.log('Please provide your user name using -u <username> option');
@@ -45,15 +48,15 @@ fetch(config.trust).then(r => r.text()).then(cert => {
   const publicKey = ec.keyFromPublic(cert);
 
   const auth = handler => (req, res) => {
-    const { user, fp } = req.query;
-    if (user !== config.user || fp !== config.identity || !publicKey.verify({ user, fp }, req.headers.signature)) {
+    const [user, fp, signature] = req.headers.authorization.split(',');
+    if (user !== config.user || fp !== config.identity || !publicKey.verify({ user, fp }, signature)) {
       res.error('Unauthorized', 401);
     }
     else return handler(req, res);
   }
 
   polka()
-    .use(helpers, cors())
+    .use(helpers, json(), cors())
     .use('/resource', auth(serveFiles(config.root)))
     .get('/identity', (_, res) => res.end(config.identity))
     .listen(config.port, err => {
