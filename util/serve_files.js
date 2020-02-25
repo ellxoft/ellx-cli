@@ -2,7 +2,7 @@ const path = require('path');
 const fs = require('fs');
 const mime = require('mime/lite');
 
-const { stat, readdir, mkdir, writeFile } = fs.promises;
+const { stat, readdir, mkdir, writeFile, rmdir, unlink, rename, copyFile } = fs.promises;
 
 async function sendFile(req, res, file, stats, headers={}) {
   let code=200, opts={};
@@ -43,9 +43,16 @@ async function sendDirectory(res, filePath) {
     })));
 }
 
+async function copyDirectory(filePath, newPath) {
+  await mkdir(newPath);
+  const items = await readdir(filePath, { withFileTypes: true });
+  await Promise.all(items.map(item => (item.isDirectory() ? copyDirectory : copyFile)(path.join(filePath, item.name), path.join(newPath, item.name))));
+}
+
 const serve = root => async (req, res) => {
   const filePath = path.join(root, req.path);
   console.log(req.method + ' ' + filePath);
+  if (Object.keys(req.body).length) console.log(req.body);
 
   if (!filePath.startsWith(root)) {
     return res.error('Unauthorized', 401);
@@ -56,8 +63,8 @@ const serve = root => async (req, res) => {
 
     if (req.method === 'GET') {
       // TODO: cache everything and invalidate in fs watch
-      if (stats.isDirectory()) await sendDirectory(res, filePath);
-      else if (stats.isFile()) await sendFile(req, res, filePath, stats);
+      if (stats.isDirectory()) return sendDirectory(res, filePath);
+      else if (stats.isFile()) return sendFile(req, res, filePath, stats);
       else return res.error('Unsupported resource type', 400);
     }
     else if (req.method === 'PUT') {
@@ -68,12 +75,29 @@ const serve = root => async (req, res) => {
 
       // TODO: set proper access rights mode
       if (type === 'directory') await mkdir(file);
-      else if (type === 'file') await writeFile(file, contents);
-      else return res.error('Unsupported resource type', 400);
-
-      res.end('success');
+      else await writeFile(file, contents);
     }
-    else res.error('Unsupported method', 400);
+    else if (req.method === 'DELETE') {
+      if (stats.isDirectory()) await rmdir(filePath, { recursive: Boolean(req.body.recursive) });
+      else await unlink(filePath);
+    }
+    else if (req.method === 'POST') {
+      const { action, destination, recursive } = req.body;
+      if (stats.isDirectory() && !recursive) return res.error('To move/copy a directory you need to set recursive: true', 400);
+
+      const newPath = path.join(root, destination);
+      if (!newPath.startsWith(root)) return res.error('Unauthorized', 401);
+
+      if (action === 'move') await rename(filePath, newPath);
+      else if (action === 'copy') {
+        if (stats.isDirectory()) await copyDirectory(filePath, newPath);
+        else await copyFile(filePath, newPath);
+      }
+      else return res.error('Unrecognized action: ' + action, 400);
+    }
+    else return res.error('Unsupported method', 400);
+
+    res.end('success');
   }
   catch (e) {
     res.error(e.code, 400);
