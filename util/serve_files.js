@@ -50,18 +50,16 @@ async function copyDirectory(filePath, newPath) {
 }
 
 const serve = root => {
-  const ensureParentExists = (path) => {
-    if (!path.startsWith(root)) throw new Error('Root path does not exist');
+  const makeResource = (path, asyncOp) => {
+    if (!path.startsWith(root)) return Promise.reject('Root path does not exist');
 
-    return {
-      and: op => op().catch(e => {
-        if (e.code === 'ENOENT') {
-          const parent = join(path, '..');
-          return ensureParentExists(parent).and(() => mkdir(parent).then(op));
-        }
-        else if (e.code !== 'EEXIST') throw e;
-      })
-    };
+    return asyncOp().catch(e => {
+      if (e.code === 'ENOENT') {
+        const parent = join(path, '..');
+        return makeResource(parent, () => mkdir(parent).then(asyncOp));
+      }
+      else if (e.code !== 'EEXIST') throw e;
+    });
   }
 
   return async (req, res) => {
@@ -74,39 +72,36 @@ const serve = root => {
     }
 
     try {
-      const stats = await stat(filePath);
-
       if (req.method === 'GET') {
         // TODO: cache everything and invalidate in fs watch
-        if (stats.isDirectory()) return sendDirectory(res, filePath);
-        else if (stats.isFile()) return sendFile(req, res, filePath, stats);
+        const stats = await stat(filePath);
+        if (stats.isDirectory()) await sendDirectory(res, filePath);
+        else if (stats.isFile()) await sendFile(req, res, filePath, stats);
         else return res.error('Unsupported resource type', 400);
       }
       else if (req.method === 'PUT') {
-        if (!stats.isDirectory()) return res.error('Not a directory', 400);
+        const { type, contents } = req.body;
 
-        const { name, type, contents } = req.body;
-        const file = join(filePath, name);
-
-        await ensureParentExists(file).and(async () => {
+        await makeResource(filePath, () => {
           // TODO: set proper access rights mode
-          if (type === 'directory') await mkdir(file);
-          else await writeFile(file, contents);
+          if (type === 'directory') return mkdir(filePath);
+          return writeFile(filePath, contents);
         });
       }
       else if (req.method === 'DELETE') {
-        if (stats.isDirectory()) await rmdir(filePath, { recursive: Boolean(req.body.recursive) });
+        const stats = await stat(filePath);
+        if (stats.isDirectory()) await rmdir(filePath, { recursive: true });
         else await unlink(filePath);
       }
       else if (req.method === 'POST') {
-        const { action, destination, recursive } = req.body;
-        if (stats.isDirectory() && !recursive) return res.error('To move/copy a directory you need to set recursive: true', 400);
+        const { action, destination } = req.body;
 
         const newPath = join(root, destination);
         if (!newPath.startsWith(root)) return res.error('Unauthorized', 401);
 
         if (action === 'move') await rename(filePath, newPath);
         else if (action === 'copy') {
+          const stats = await stat(filePath);
           if (stats.isDirectory()) await copyDirectory(filePath, newPath);
           else await copyFile(filePath, newPath);
         }
