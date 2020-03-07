@@ -65,61 +65,61 @@ const serve = root => {
   }
 
   return async (req, res) => {
-  const filePath = join(root, req.path);
-  console.log(req.method + ' ' + filePath);
-  if (Object.keys(req.body).length) console.log(req.body);
+    const filePath = join(root, req.path);
+    console.log(req.method + ' ' + filePath);
+    if (Object.keys(req.body).length) console.log(req.body);
 
-  if (!filePath.startsWith(root)) {
-    return res.error('Unauthorized', 401);
-  }
-
-  try {
-    const stats = await stat(filePath);
-
-    if (req.method === 'GET') {
-      // TODO: cache everything and invalidate in fs watch
-      if (stats.isDirectory()) return sendDirectory(res, filePath);
-      else if (stats.isFile()) return sendFile(req, res, filePath, stats);
-      else return res.error('Unsupported resource type', 400);
+    if (!filePath.startsWith(root)) {
+      return res.error('Unauthorized', 401);
     }
-    else if (req.method === 'PUT') {
-      if (!stats.isDirectory()) return res.error('Not a directory', 400);
 
-      const { name, type, contents } = req.body;
-      const file = join(filePath, name);
+    try {
+      const stats = await stat(filePath);
 
-      await ensureParentExists(file).and(async () => {
-        // TODO: set proper access rights mode
-        if (type === 'directory') await mkdir(file);
-        else await writeFile(file, contents);
-      });
-    }
-    else if (req.method === 'DELETE') {
-      if (stats.isDirectory()) await rmdir(filePath, { recursive: Boolean(req.body.recursive) });
-      else await unlink(filePath);
-    }
-    else if (req.method === 'POST') {
-      const { action, destination, recursive } = req.body;
-      if (stats.isDirectory() && !recursive) return res.error('To move/copy a directory you need to set recursive: true', 400);
-
-      const newPath = join(root, destination);
-      if (!newPath.startsWith(root)) return res.error('Unauthorized', 401);
-
-      if (action === 'move') await rename(filePath, newPath);
-      else if (action === 'copy') {
-        if (stats.isDirectory()) await copyDirectory(filePath, newPath);
-        else await copyFile(filePath, newPath);
+      if (req.method === 'GET') {
+        // TODO: cache everything and invalidate in fs watch
+        if (stats.isDirectory()) return sendDirectory(res, filePath);
+        else if (stats.isFile()) return sendFile(req, res, filePath, stats);
+        else return res.error('Unsupported resource type', 400);
       }
-      else return res.error('Unrecognized action: ' + action, 400);
-    }
-    else return res.error('Unsupported method', 400);
+      else if (req.method === 'PUT') {
+        if (!stats.isDirectory()) return res.error('Not a directory', 400);
 
-    res.end('success');
+        const { name, type, contents } = req.body;
+        const file = join(filePath, name);
+
+        await ensureParentExists(file).and(async () => {
+          // TODO: set proper access rights mode
+          if (type === 'directory') await mkdir(file);
+          else await writeFile(file, contents);
+        });
+      }
+      else if (req.method === 'DELETE') {
+        if (stats.isDirectory()) await rmdir(filePath, { recursive: Boolean(req.body.recursive) });
+        else await unlink(filePath);
+      }
+      else if (req.method === 'POST') {
+        const { action, destination, recursive } = req.body;
+        if (stats.isDirectory() && !recursive) return res.error('To move/copy a directory you need to set recursive: true', 400);
+
+        const newPath = join(root, destination);
+        if (!newPath.startsWith(root)) return res.error('Unauthorized', 401);
+
+        if (action === 'move') await rename(filePath, newPath);
+        else if (action === 'copy') {
+          if (stats.isDirectory()) await copyDirectory(filePath, newPath);
+          else await copyFile(filePath, newPath);
+        }
+        else return res.error('Unrecognized action: ' + action, 400);
+      }
+      else return res.error('Unsupported method', 400);
+
+      res.end('success');
+    }
+    catch (e) {
+      res.error(e.code, 400);
+    }
   }
-  catch (e) {
-    res.error(e.code, 400);
-  }
-}
 }
 
 module.exports = serve;
