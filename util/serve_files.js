@@ -1,4 +1,4 @@
-const path = require('path');
+const { join } = require('path');
 const fs = require('fs');
 const mime = require('mime/lite');
 
@@ -46,11 +46,26 @@ async function sendDirectory(res, filePath) {
 async function copyDirectory(filePath, newPath) {
   await mkdir(newPath);
   const items = await readdir(filePath, { withFileTypes: true });
-  await Promise.all(items.map(item => (item.isDirectory() ? copyDirectory : copyFile)(path.join(filePath, item.name), path.join(newPath, item.name))));
+  await Promise.all(items.map(item => (item.isDirectory() ? copyDirectory : copyFile)(join(filePath, item.name), join(newPath, item.name))));
 }
 
-const serve = root => async (req, res) => {
-  const filePath = path.join(root, req.path);
+const serve = root => {
+  const ensureParentExists = (path) => {
+    if (!path.startsWith(root)) throw new Error('Root path does not exist');
+
+    return {
+      and: op => op().catch(e => {
+        if (e.code === 'ENOENT') {
+          const parent = join(path, '..');
+          return ensureParentExists(parent).and(() => mkdir(parent).then(op));
+        }
+        else if (e.code !== 'EEXIST') throw e;
+      })
+    };
+  }
+
+  return async (req, res) => {
+  const filePath = join(root, req.path);
   console.log(req.method + ' ' + filePath);
   if (Object.keys(req.body).length) console.log(req.body);
 
@@ -71,11 +86,13 @@ const serve = root => async (req, res) => {
       if (!stats.isDirectory()) return res.error('Not a directory', 400);
 
       const { name, type, contents } = req.body;
-      const file = path.join(filePath, name);
+      const file = join(filePath, name);
 
-      // TODO: set proper access rights mode
-      if (type === 'directory') await mkdir(file);
-      else await writeFile(file, contents);
+      await ensureParentExists(file).and(async () => {
+        // TODO: set proper access rights mode
+        if (type === 'directory') await mkdir(file);
+        else await writeFile(file, contents);
+      });
     }
     else if (req.method === 'DELETE') {
       if (stats.isDirectory()) await rmdir(filePath, { recursive: Boolean(req.body.recursive) });
@@ -85,7 +102,7 @@ const serve = root => async (req, res) => {
       const { action, destination, recursive } = req.body;
       if (stats.isDirectory() && !recursive) return res.error('To move/copy a directory you need to set recursive: true', 400);
 
-      const newPath = path.join(root, destination);
+      const newPath = join(root, destination);
       if (!newPath.startsWith(root)) return res.error('Unauthorized', 401);
 
       if (action === 'move') await rename(filePath, newPath);
@@ -102,6 +119,7 @@ const serve = root => async (req, res) => {
   catch (e) {
     res.error(e.code, 400);
   }
+}
 }
 
 module.exports = serve;
