@@ -32,7 +32,10 @@ if (!config.user) {
 }
 
 const helpers = (req, res, next) => {
-  res.json = resp => res.end(JSON.stringify(resp));
+  res.json = resp => {
+    res.setHeader('Content-Type', 'application/json');
+    res.end(JSON.stringify(resp));
+  }
   res.error = (error, status = 500) => {
     res.status = status;
     res.json({
@@ -43,11 +46,19 @@ const helpers = (req, res, next) => {
   next();
 }
 
-fetch(config.trust).then(r => r.text()).then(cert => {
+fetch(config.trust).then(r => {
+  if (r.ok) return r.text();
+
+  throw new Error(`${r.status} ${r.statusText}`);
+}).then(cert => {
   console.log("Successfully fetched authorization server's certificate: " + cert);
   const publicKey = ec.keyFromPublic(cert);
 
   const auth = handler => (req, res) => {
+    if (!req.headers.authorization) {
+      return res.error('No authorization header', 403);
+    }
+
     const [user, fp, signature] = req.headers.authorization.split(',');
     if (user !== config.user || fp !== config.identity || !publicKey.verify({ user, fp }, signature)) {
       res.error('Unauthorized', 401);
