@@ -21,7 +21,7 @@ const config = commandLineArgs(optionDefinitions);
 
 config.port = config.port || 3002;
 config.trust = config.trust || 'http://localhost:8080/certificate';
-config.identity = config.identity || 'localhost-' + config.port;
+config.identity = config.identity || 'localhost~' + config.port;
 config.root = config.root || process.cwd();
 
 // TODO: RegEx check and warn for user and identity
