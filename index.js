@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 const commandLineArgs = require('command-line-args');
+const path = require('path');
 const cors = require("cors");
 const polka = require("polka");
 const fetch = require("node-fetch");
@@ -22,7 +23,7 @@ const config = commandLineArgs(optionDefinitions);
 config.port = config.port || 3002;
 config.trust = config.trust || 'http://localhost:8080/certificate';
 config.identity = config.identity || 'localhost~' + config.port;
-config.root = config.root || process.cwd();
+config.root = path.resolve(process.cwd(), config.root || '.');
 
 // TODO: RegEx check and warn for user and identity
 
@@ -37,7 +38,7 @@ const helpers = (req, res, next) => {
     res.end(JSON.stringify(resp));
   }
   res.error = (error, status = 500) => {
-    res.status = status;
+    res.statusCode = status;
     res.json({
       error
       // TODO: context
@@ -67,11 +68,12 @@ fetch(config.trust).then(r => {
   }
 
   polka()
-    .use(helpers, json(), cors())
+    .use(json(), helpers, cors())
     .use('/resource', auth(serveFiles(config.root)))
     .get('/identity', (_, res) => res.end(config.identity))
     .listen(config.port, err => {
       if (err) throw err;
       console.log(`> Running on localhost:${config.port}`);
+      console.log('Serving ' + config.root);
     });
 });

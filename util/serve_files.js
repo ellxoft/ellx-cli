@@ -2,34 +2,16 @@ const { join } = require('path');
 const fs = require('fs');
 const mime = require('mime/lite');
 
-const { stat, readdir, mkdir, writeFile, rmdir, unlink, rename, copyFile } = fs.promises;
+const { stat, readFile, readdir, mkdir, writeFile, rmdir, unlink, rename, copyFile } = fs.promises;
 
-async function sendFile(req, res, file, stats, headers={}) {
-  let code=200, opts={};
+async function sendFile(res, file, stats) {
+  const headers = {
+    'Content-Length': stats.size,
+    'Content-Type': 'text/plain' //mime.getType(file)
+  };
 
-  if (req.headers.range) {
-    code = 206;
-    let [x, y] = req.headers.range.replace('bytes=', '').split('-');
-    let end = opts.end = parseInt(y, 10) || stats.size - 1;
-    let start = opts.start = parseInt(x, 10) || 0;
-
-    if (start >= stats.size || end >= stats.size) {
-      res.setHeader('Content-Range', `bytes */${stats.size}`);
-      res.statusCode = 416;
-      return res.end();
-    }
-
-    headers['Content-Range'] = `bytes ${start}-${end}/${stats.size}`;
-    headers['Content-Length'] = (end - start + 1);
-    headers['Accept-Ranges'] = 'bytes';
-  }
-  else headers['Content-Length'] = stats.size;
-
-  headers['Content-Type'] = mime.getType(file);
-  headers['Last-Modified'] = stats.mtime.toUTCString();
-
-  res.writeHead(code, headers);
-  fs.createReadStream(file, opts).pipe(res);
+  res.writeHead(200, headers);
+  res.end(await readFile(file, { encoding: 'utf8' }));
 }
 
 async function sendDirectory(res, filePath) {
@@ -93,7 +75,7 @@ const serve = root => async (req, res) => {
 
     if (req.method === 'GET') {
       if (stats.isDirectory()) await sendDirectory(res, filePath);
-      else if (stats.isFile()) await sendFile(req, res, filePath, stats);
+      else if (stats.isFile()) await sendFile(res, filePath, stats);
       else return res.error('Unsupported resource type', 400);
     }
     else if (req.method === 'PUT') {
@@ -127,7 +109,8 @@ const serve = root => async (req, res) => {
     res.end('success');
   }
   catch (e) {
-    res.error(e.code, 400);
+    if (e.code === 'ENOENT') res.error('Not found', 404);
+    else res.error(e.code, 400);
   }
 }
 
