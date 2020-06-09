@@ -1,35 +1,17 @@
-const path = require('path');
+const { join } = require('path');
 const fs = require('fs');
 const mime = require('mime/lite');
 
-const { stat, readdir, mkdir, writeFile, rmdir, unlink, rename, copyFile } = fs.promises;
+const { stat, readFile, readdir, mkdir, writeFile, rmdir, unlink, rename, copyFile } = fs.promises;
 
-async function sendFile(req, res, file, stats, headers={}) {
-  let code=200, opts={};
+async function sendFile(res, file, stats) {
+  const headers = {
+    'Content-Length': stats.size,
+    'Content-Type': 'text/plain' //mime.getType(file)
+  };
 
-  if (req.headers.range) {
-    code = 206;
-    let [x, y] = req.headers.range.replace('bytes=', '').split('-');
-    let end = opts.end = parseInt(y, 10) || stats.size - 1;
-    let start = opts.start = parseInt(x, 10) || 0;
-
-    if (start >= stats.size || end >= stats.size) {
-      res.setHeader('Content-Range', `bytes */${stats.size}`);
-      res.statusCode = 416;
-      return res.end();
-    }
-
-    headers['Content-Range'] = `bytes ${start}-${end}/${stats.size}`;
-    headers['Content-Length'] = (end - start + 1);
-    headers['Accept-Ranges'] = 'bytes';
-  }
-  else headers['Content-Length'] = stats.size;
-
-  headers['Content-Type'] = mime.getType(file);
-  headers['Last-Modified'] = stats.mtime.toUTCString();
-
-  res.writeHead(code, headers);
-  fs.createReadStream(file, opts).pipe(res);
+  res.writeHead(200, headers);
+  res.end(await readFile(file, { encoding: 'utf8' }));
 }
 
 async function sendDirectory(res, filePath) {
@@ -37,20 +19,50 @@ async function sendDirectory(res, filePath) {
 
   res.json(items
     .filter(item => !item.name.startsWith('.') && (item.isDirectory() || item.isFile()))
-    .map(item => ({
-      name: item.name,
-      type: item.isFile() ? 'file' : 'dir'
-    })));
+    .map(item => item.name + (item.isDirectory() ? '/' : ''))
+  );
 }
 
 async function copyDirectory(filePath, newPath) {
   await mkdir(newPath);
   const items = await readdir(filePath, { withFileTypes: true });
-  await Promise.all(items.map(item => (item.isDirectory() ? copyDirectory : copyFile)(path.join(filePath, item.name), path.join(newPath, item.name))));
+
+  return Promise.all(items
+    .map(item => (item.isDirectory() ? copyDirectory : copyFile)(
+      join(filePath, item.name),
+      join(newPath, item.name)
+    )));
+}
+
+async function makeOne(filePath, contents, secondTry = false) {
+  try {
+    // TODO: set proper access rights mode
+    if (filePath.endsWith('/')) await mkdir(filePath);
+    else await writeFile(filePath, contents, 'utf8');
+  }
+  catch (e) {
+    if (e.code === 'ENOENT') {
+      if (secondTry) throw e;
+
+      await makeOne(join(filePath, '../'));
+      return makeOne(filePath, contents, true);
+    }
+    if (e.code !== 'EEXIST') throw e;
+  }
+}
+
+function makeResources(filePath, files) {
+  files = new Map(files
+    .filter(Array.isArray)
+    .map(([path, contents]) => [join(filePath, decodeURI(path)), contents && String(contents)])
+    .filter(([path]) => path.startsWith(filePath))
+  );
+  return Promise.all([...files].map(pair => makeOne(...pair)));
 }
 
 const serve = root => async (req, res) => {
-  const filePath = path.join(root, req.path);
+  const filePath = join(root, decodeURI(req.path));
+
   console.log(req.method + ' ' + filePath);
   if (Object.keys(req.body).length) console.log(req.body);
 
@@ -62,33 +74,30 @@ const serve = root => async (req, res) => {
     const stats = await stat(filePath);
 
     if (req.method === 'GET') {
-      // TODO: cache everything and invalidate in fs watch
-      if (stats.isDirectory()) return sendDirectory(res, filePath);
-      else if (stats.isFile()) return sendFile(req, res, filePath, stats);
+      if (stats.isDirectory()) await sendDirectory(res, filePath);
+      else if (stats.isFile()) await sendFile(res, filePath, stats);
       else return res.error('Unsupported resource type', 400);
     }
     else if (req.method === 'PUT') {
-      if (!stats.isDirectory()) return res.error('Not a directory', 400);
+      const { files } = req.body;
+      if (!stats.isDirectory()) return res.error(`${filePath} is not a directory`, 400);
+      if (!Array.isArray(files)) return res.error('Bad files argument', 400);
 
-      const { name, type, contents } = req.body;
-      const file = path.join(filePath, name);
-
-      // TODO: set proper access rights mode
-      if (type === 'directory') await mkdir(file);
-      else await writeFile(file, contents);
+      await makeResources(filePath, files);
     }
     else if (req.method === 'DELETE') {
-      if (stats.isDirectory()) await rmdir(filePath, { recursive: Boolean(req.body.recursive) });
+      if (stats.isDirectory()) await rmdir(filePath, { recursive: true });
       else await unlink(filePath);
     }
     else if (req.method === 'POST') {
-      const { action, destination, recursive } = req.body;
-      if (stats.isDirectory() && !recursive) return res.error('To move/copy a directory you need to set recursive: true', 400);
+      const { action, destination } = req.body;
 
-      const newPath = path.join(root, destination);
+      const newPath = join(root, decodeURI(destination));
       if (!newPath.startsWith(root)) return res.error('Unauthorized', 401);
 
-      if (action === 'move') await rename(filePath, newPath);
+      if (action === 'move') {
+        await rename(filePath, newPath);
+      }
       else if (action === 'copy') {
         if (stats.isDirectory()) await copyDirectory(filePath, newPath);
         else await copyFile(filePath, newPath);
@@ -100,7 +109,8 @@ const serve = root => async (req, res) => {
     res.end('success');
   }
   catch (e) {
-    res.error(e.code, 400);
+    if (e.code === 'ENOENT') res.error('Not found', 404);
+    else res.error(e.code, 400);
   }
 }
 
