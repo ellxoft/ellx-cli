@@ -13,5 +13,5 @@ jobs:
       - uses: actions/setup-node@v1
         with:
           node-version: '13.x'
-      - run: yarn && node ellx-sync.js
-        working-directory: client/.github/workflows
+      - run: yarn && node .github/workflows/ellx-sync.js
+        working-directory: client
