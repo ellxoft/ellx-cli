@@ -38,4 +38,10 @@ module.exports = function initWorkflow(force = false) {
   } catch (e) {
     console.error(e);
   }
+
+  console.log(`
+    Workflow added successfully.\n
+    Please add secret to your repository as described here:\n\n
+    https://ellx.io/docs/sync-local-with-github
+  `)
 }
