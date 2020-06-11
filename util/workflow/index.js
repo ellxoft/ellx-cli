@@ -10,8 +10,6 @@ const {
 const WORKFLOW_DIR = '.github/workflows';
 const WORKFLOW_FILENAME = 'ellx-sync.yml';
 
-const workflowFile = resolve(WORKFLOW_DIR, WORKFLOW_FILENAME);
-
 function copyRecursiveSync(src, dest) {
   const exists = existsSync(src);
   const stats = exists && statSync(src);
@@ -30,7 +28,8 @@ function copyRecursiveSync(src, dest) {
 }
 
 module.exports = function initWorkflow(force = false) {
-  if (!force && (existsSync(workflowFile) || existsSync('.syncignore'))) return;
+  if (!force && (existsSync(resolve(WORKFLOW_DIR, WORKFLOW_FILENAME))
+    || existsSync('.syncignore'))) return;
 
   console.log('Adding workflow to sync between Github and Ellx Cloud...');
 
