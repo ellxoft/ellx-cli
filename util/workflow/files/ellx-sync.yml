@@ -1,0 +1,17 @@
+name: Ellx sync
+
+on:
+  push:
+    - master
+
+jobs:
+  test-client:
+    name: Sync
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v1
+      - uses: actions/setup-node@v1
+        with:
+          node-version: '13.x'
+      - run: yarn && node ellx-sync.js
+        working-directory: client/.github/workflows

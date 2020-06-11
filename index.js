@@ -2,10 +2,11 @@
 
 const commandLineArgs = require('command-line-args');
 const path = require('path');
-const cors = require("cors");
-const polka = require("polka");
-const fetch = require("node-fetch");
-const { json } = require("body-parser");
+const cors = require('cors');
+const polka = require('polka');
+const fetch = require('node-fetch');
+const { json } = require('body-parser');
+const initWorkflow = require('./util/workflow');
 const ec = require('./util/ec');
 
 const serveFiles = require('./util/serve_files');
@@ -15,7 +16,8 @@ const optionDefinitions = [
   { name: 'trust', alias: 't', type: String },
   { name: 'identity', type: String },
   { name: 'port', alias: 'p', type: Number },
-  { name: 'root', alias: 'r', type: String }
+  { name: 'root', alias: 'r', type: String },
+  { name: 'force', alias: 'f', type: Boolean }
 ];
 
 const config = commandLineArgs(optionDefinitions);
@@ -23,6 +25,7 @@ const config = commandLineArgs(optionDefinitions);
 config.port = config.port || 3002;
 config.trust = config.trust || 'http://localhost:8080/certificate';
 config.identity = config.identity || 'localhost~' + config.port;
+config.force = config.force || false;
 config.root = path.resolve(process.cwd(), config.root || '.');
 
 // TODO: RegEx check and warn for user and identity
@@ -52,7 +55,7 @@ fetch(config.trust).then(r => {
 
   throw new Error(`${r.status} ${r.statusText}`);
 }).then(cert => {
-  console.log("Successfully fetched authorization server's certificate: " + cert);
+  console.log('Successfully fetched authorization server\'s certificate: ' + cert);
   const publicKey = ec.keyFromPublic(cert);
 
   const auth = handler => (req, res) => {
@@ -66,6 +69,8 @@ fetch(config.trust).then(r => {
     }
     else return handler(req, res);
   }
+
+  initWorkflow(config.force);
 
   polka()
     .use(json(), helpers, cors())
