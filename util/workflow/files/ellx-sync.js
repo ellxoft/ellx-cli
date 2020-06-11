@@ -38,8 +38,7 @@ function getContentType(id) {
   return 'text/plain';
 }
 
-// TODO: replace owner/project with auth key
-async function sync(owner = 'matyunya', project = 'one-project', server = 'http://localhost:8080')  {
+async function sync(repo = 'matyunya/one-project', server)  {
   const fetch = require("node-fetch");
 
   const files = walk('.')
@@ -50,22 +49,28 @@ async function sync(owner = 'matyunya', project = 'one-project', server = 'http:
     }));
 
   const res = await fetch(
-    server + `/resource/${owner}/${project}/write/`,
+    server + `/resource/${repo}/write/`,
     {
       method: 'POST',
       body: JSON.stringify({ files }),
       // TODO: auth header from env
       // for now need to copy valid token from client
       headers: {
-        Cookie: 'token=1198f4660f72997d97ca5fffa00f0b557092670b1fdfe4e884653d50861acffbfa4399f3caa1fd866b6b8940d4ead2574bb957a43fb196a57b29a2073b22917e',
+        Cookie: `token=${process.env.ELLX_SECRET}`,
         'Content-Type': 'application/json',
       },
     }
   );
 
+  if (!res.ok) {
+    const message = await res.json();
+    console.error(res.status, message.error ? message.error : message);
+    return;
+  }
+
   const urls = await res.json();
 
-  const up = await Promise.all(
+  const uploads = await Promise.all(
     urls.map(
       async ({ path, url }) => fetch(url, {
         method: 'PUT',
@@ -77,23 +82,27 @@ async function sync(owner = 'matyunya', project = 'one-project', server = 'http:
     )
   );
 
-  if (up.ok) {
+  if (uploads.every(i => i.ok)) {
     console.log(
       'Synced following files successfully:\n',
+    );
+    console.log(
       urls.map(({ path }) => path.slice(1)).join('\n')
     );
+
     process.exit(0);
   } else {
     console.log(
       'Error uploading files',
-      await res.json()
+      await Promise.all(uploads.map(async r => r.json()))
     );
     process.exit(1);
   }
 }
 
 try {
-  sync();
+  // from https://help.github.com/en/actions/configuring-and-managing-workflows/using-environment-variables
+  sync(process.env.GITHUB_REPOSITORY, process.env.ELLX_URL || 'http://localhost:8080');
 } catch (e) {
   console.error('Unexpected error', e);
 
