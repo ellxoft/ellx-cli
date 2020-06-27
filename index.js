@@ -57,12 +57,14 @@ fetch(config.trust).then(r => {
 
   const auth = handler => (req, res) => {
     if (!req.headers.authorization) {
-      return res.error('No authorization header', 403);
+      return res.error('No authorization header', 401);
     }
 
-    const [user, fp, signature] = req.headers.authorization.split(',');
-    if (user !== config.user || fp !== config.identity || !publicKey.verify({ user, fp }, signature)) {
-      res.error('Unauthorized', 401);
+    const [ts, signature] = req.headers.authorization.split(',');
+    const payload = [config.user, config.identity, ts].join(',');
+
+    if (!publicKey.verify(payload, signature)) {
+      res.error('Forbidden', 403);
     }
     else return handler(req, res);
   }
