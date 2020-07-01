@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v1
-      - uses: matyunya/ellx-sync@master
+      - uses: ellxoft/ellx-sync@master
         with:
           ellx-url: https://api.ellx.io
           ellx-key: ${{ secrets.ELLX_KEY }}
