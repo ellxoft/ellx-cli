@@ -12,5 +12,6 @@ jobs:
       - uses: actions/checkout@v1
       - uses: matyunya/ellx-sync@master
         with:
-          ellxUrl: https://api.ellx.io
-          key: ${{ secrets.ELLX_KEY }}
+          ellx-url: https://api.ellx.io
+          ellx-key: ${{ secrets.ELLX_KEY }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
