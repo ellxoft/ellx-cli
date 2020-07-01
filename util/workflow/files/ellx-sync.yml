@@ -2,7 +2,8 @@ name: Ellx sync
 
 on:
   push:
-    - master
+    branches:
+      - master
 
 jobs:
   test-client:
@@ -10,8 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v1
-      - uses: actions/setup-node@v1
+      - uses: matyunya/ellx-sync@1
         with:
-          node-version: '13.x'
-      - run: yarn && node .github/workflows/ellx-sync.js
-        working-directory: client
+          ellxUrl: https://api.ellx.io
+          key: {{ secrets.ELLX_KEY }}
