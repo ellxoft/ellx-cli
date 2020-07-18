@@ -52,7 +52,7 @@ fetch(config.trust).then(r => {
 
   throw new Error(`${r.status} ${r.statusText}`);
 }).then(cert => {
-  console.log("Successfully fetched authorization server's certificate: " + cert);
+  console.log(`Successfully fetched ${config.trust}: ${cert}`);
   const publicKey = ec.keyFromPublic(cert);
 
   const auth = handler => (req, res) => {
