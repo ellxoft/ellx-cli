@@ -1,7 +1,7 @@
 {
   "name": "ellx",
   "version": "0.2.2",
-  "description": "ELLX resource server",
+  "description": "Ellx resource server",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
@@ -15,7 +15,7 @@
     "url": "git+https://github.com/dmaevsky/ellx-rs.git"
   },
   "keywords": [
-    "ELLX"
+    "Ellx"
   ],
   "author": "Ellxoft",
   "license": "MIT",
