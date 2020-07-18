@@ -74,8 +74,8 @@ const serve = root => async (req, res) => {
     const stats = await stat(filePath);
 
     if (req.method === 'GET') {
-      if (stats.isDirectory()) return sendDirectory(res, filePath);
-      else if (stats.isFile()) return sendFile(res, filePath, stats);
+      if (stats.isDirectory()) return await sendDirectory(res, filePath);
+      else if (stats.isFile()) return await sendFile(res, filePath, stats);
       else return res.error('Unsupported resource type', 400);
     }
     else if (req.method === 'PUT') {
