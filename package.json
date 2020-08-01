@@ -27,7 +27,7 @@
     "body-parser": "^1.19.0",
     "command-line-args": "^5.1.1",
     "cors": "^2.8.5",
-    "elliptic": "^6.5.2",
+    "elliptic": "^6.5.3",
     "mime": "^2.4.4",
     "node-fetch": "^2.6.0",
     "polka": "^0.5.2"
