@@ -1,7 +1,7 @@
 {
-  "name": "ellx",
-  "version": "0.2.2",
-  "description": "Ellx resource server",
+  "name": "@ellx/cli",
+  "version": "1.0.0",
+  "description": "Ellx CLI",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
@@ -9,10 +9,12 @@
   "engines": {
     "node": ">=12.0.0"
   },
-  "bin": "./index.js",
+  "bin": {
+    "ellx": "./index.js"
+  },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/dmaevsky/ellx-rs.git"
+    "url": "git+https://github.com/ellxoft/ellx-cli.git"
   },
   "keywords": [
     "Ellx"
@@ -20,15 +22,15 @@
   "author": "Ellxoft",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/dmaevsky/ellx-rs/issues"
+    "url": "https://github.com/ellxoft/ellx-cli/issues"
   },
-  "homepage": "https://github.com/dmaevsky/ellx-rs#readme",
+  "homepage": "https://github.com/ellxoft/ellx-cli#readme",
   "dependencies": {
     "body-parser": "^1.19.0",
     "command-line-args": "^5.1.1",
     "cors": "^2.8.5",
-    "elliptic": "^6.5.2",
-    "mime": "^2.4.4",
+    "elliptic": "^6.5.3",
+    "mime": "^2.4.6",
     "node-fetch": "^2.6.0",
     "polka": "^0.5.2"
   }
