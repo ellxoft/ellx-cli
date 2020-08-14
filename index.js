@@ -7,6 +7,8 @@ const polka = require("polka");
 const fetch = require("node-fetch");
 const { json } = require("body-parser");
 const ec = require('./util/ec');
+const WebSocket = require('ws');
+const http = require('http');
 
 const serveFiles = require('./util/serve_files');
 
@@ -47,6 +49,8 @@ const helpers = (req, res, next) => {
   next();
 }
 
+const server = http.createServer();
+
 fetch(config.trust).then(r => {
   if (r.ok) return r.text();
 
@@ -69,7 +73,7 @@ fetch(config.trust).then(r => {
     else return handler(req, res);
   }
 
-  polka()
+  polka({ server })
     .use(json(), helpers, cors())
     .use('/resource', auth(serveFiles(config.root)))
     .get('/identity', (_, res) => res.end(config.identity))
@@ -79,3 +83,5 @@ fetch(config.trust).then(r => {
       console.log('Serving ' + config.root);
     });
 });
+
+const ws = new WebSocket.Server({ server, path: '/ws' });
