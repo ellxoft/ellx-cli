@@ -18,7 +18,7 @@ npm i -g @ellx/cli or yarn global add @ellx/cli
 ## Options
 
 Option, alias | Default | Description
---- | --- | --- | ---
+--- | --- | ---
 `--user, -u`  | _required_ | Ellx username
 `--port, -p ` | `3002` | Serve on this port
 `--identity, -i` | `localhost~port` | Local server instance identity (the value you should input in "Ellx CLI connect")
