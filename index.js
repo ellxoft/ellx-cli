@@ -15,7 +15,7 @@ const serveFiles = require('./util/serve_files');
 const optionDefinitions = [
   { name: 'user', alias: 'u', type: String, defaultOption: true },
   { name: 'trust', alias: 't', type: String },
-  { name: 'identity', type: String },
+  { name: 'identity', alias: 'i', type: String },
   { name: 'port', alias: 'p', type: Number },
   { name: 'root', alias: 'r', type: String }
 ];
